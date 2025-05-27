@@ -1,4 +1,4 @@
-MAIN_ROOT=$PWD/../../..
+MAIN_ROOT=$PWD/../..
 
 export PATH=$PWD/utils/:$PATH
 export LC_ALL=C

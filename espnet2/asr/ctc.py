@@ -74,7 +74,7 @@ class CTC(torch.nn.Module):
 
     def loss_fn(self, th_pred, th_target, th_ilen, th_olen) -> torch.Tensor:
         if self.ctc_type == "builtin" or self.ctc_type == "brctc":
-            th_pred = th_pred.log_softmax(2).float()
+            th_pred = th_pred.log_softmax(2)
             loss = self.ctc_loss(th_pred, th_target, th_ilen, th_olen)
             if self.ctc_type == "builtin":
                 size = th_pred.size(1)
@@ -91,7 +91,7 @@ class CTC(torch.nn.Module):
         # builtin2 ignores nan losses using the logic below, while
         # builtin relies on the zero_infinity flag in pytorch CTC
         elif self.ctc_type == "builtin2":
-            th_pred = th_pred.log_softmax(2).float()
+            th_pred = th_pred.log_softmax(2)
             loss = self.ctc_loss(th_pred, th_target, th_ilen, th_olen)
 
             if loss.requires_grad and self.ignore_nan_grad:
@@ -203,12 +203,30 @@ class CTC(torch.nn.Module):
         """
         return F.log_softmax(self.ctc_lo(hs_pad), dim=2)
 
-    def argmax(self, hs_pad):
-        """argmax of frame activations
+    # def argmax(self, hs_pad):
+    #     """argmax of frame activations
+
+    #     Args:
+    #         torch.Tensor hs_pad: 3d tensor (B, Tmax, eprojs)
+    #     Returns:
+    #         torch.Tensor: argmax applied 2d tensor (B, Tmax)
+    #     """
+    #     return torch.argmax(self.ctc_lo(hs_pad), dim=2)
+    
+    def argmax(self, hs_pad, ignored_tokens=None):
+        """argmax of frame activations, ignoring specific tokens.
 
         Args:
             torch.Tensor hs_pad: 3d tensor (B, Tmax, eprojs)
+            list ignored_tokens: list of token indices to ignore (optional)
         Returns:
             torch.Tensor: argmax applied 2d tensor (B, Tmax)
         """
-        return torch.argmax(self.ctc_lo(hs_pad), dim=2)
+        logits = self.ctc_lo(hs_pad)
+
+        if ignored_tokens is not None:
+            # Set logits of ignored tokens to a very negative value so they are not chosen
+            for token_idx in ignored_tokens:
+                logits[:, :, token_idx] = float('-inf')
+
+        return torch.argmax(logits, dim=2)
